@@ -1,0 +1,174 @@
+# PySpark Datasource for ROOT
+
+[![Test](https://github.com/cerndb/pyspark-root-datasource/actions/workflows/pytest.yml/badge.svg)](https://github.com/cerndb/pyspark-root-datasource/actions/workflows/pytest.yml)
+[![PyPI](https://img.shields.io/pypi/v/pyspark-root-datasource.svg)](https://pypi.org/project/pyspark-root-datasource/)
+
+Apache Spark 4 Python Datasource for reading files in the **ROOT** data format used in High-Energy Physics (HEP).
+
+**Author and version**  
+Luca.Canali@cern.ch · v0.1 (Sep 2025)
+
+## Highlights
+
+- ✅ Allows to read ROOT data using Apache Spark using a custom Spark 4 Python DataSource.
+- ✅ Works with local files, directories, and globs; optional **XRootD** (`root://`) support.
+- ✅ Implements partitioning and optional schema inference.
+- ✅ Powered by **uproot**, **awkward**, **PyArrow** and Spark's Python Datasource.
+
+---
+## Related work & acknowledgments
+
+- The ROOT format is part of the [ROOT project](https://root.cern/)
+- Key dependencies from scikit-hep: [uproot](https://github.com/scikit-hep/uproot5) and [awkward](https://github.com/scikit-hep/awkward) (thanks to Jim Pivarski)  
+- Spark Python Datasources: [Python Data Source API](https://spark.apache.org/docs/latest/api/python/tutorial/sql/python_data_source.html), [Spark Python datasources](https://github.com/allisonwang-db/awesome-python-datasources), [Datasource for Huggingface datasets](https://github.com/huggingface/pyspark_huggingface)
+- [SPARK-48493](https://issues.apache.org/jira/browse/SPARK-48493) - Arrow batch support for improved performance (thanks to Allison Wang)
+- Notes and example notebooks on [Apache Spark for Physics](https://github.com/LucaCanali/Miscellaneous/tree/master/Spark_Physics) and a note on reading [ROOT files with Spark](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Physics/Spark_Root_data_preparation.md)
+
+---
+## Install
+
+```bash
+# From PyPI
+pip install pyspark-root-datasource
+
+# Or, local for development
+pip install -e .
+```
+
+---
+
+## Quick start
+
+```python
+from pyspark.sql import SparkSession
+from pyspark_root_datasource import register
+
+spark = (SparkSession.builder
+         .appName("Read ROOT via PySpark + uproot")
+         .getOrCreate())
+
+# Register the datasource (short name = "root")
+register(spark)
+
+# Get the example ROOT file (2 GB)
+# xrdcp root://eospublic.cern.ch//eos/opendata/cms/derived-data/AOD2NanoAODOutreachTool/Run2012BC_DoubleMuParked_Muons.root .
+# if you don't have xrdcp installed, on Linux use wget or curl -O
+wget https://sparkdltrigger.web.cern.ch/sparkdltrigger/Run2012BC_DoubleMuParked_Muons.root
+
+# Best practice: provide a schema to prune branches early
+schema = "nMuon int, Muon_pt array<float>, Muon_eta array<float>, Muon_phi array<float>, Muon_mass array<float>, Muon_charge array<int>"
+
+df = (spark.read.format("root")
+      .schema(schema)
+      .option("path", "/data/Run2012BC_DoubleMuParked_Muons.root")
+      .option("tree", "Events")
+      .option("step_size", "1000000")
+      .load())
+
+df.show(5, truncate=False)
+print("Count:", df.count())
+
+# Use schema inference
+df2 = (spark.read.format("root")
+       .option("path", "/data/Run2012BC_DoubleMuParked_Muons.root")
+       .option("tree", "Events")
+       .option("sample_rows", "1000")   # default 1000
+       .load())
+df2.printSchema()
+```
+
+---
+## Examples and tests
+
+- Read ROOT using PySpark: [read_root_file.py](examples/read_root_file.py)
+- Run tests using with `pytest`
+- Example notebook, showing how to make a plot from ROOT files: 
+  - [Dimuon_mass_spectrum.ipynb](examples/Dimuon_mass_spectrum.ipynb)
+
+---
+## Options
+
+- `"path"` **(required)** – file path, URL, comma-separated list, directory, or glob (e.g. `"/data/*.root"`)
+- `"tree"` (default: `"Events"`) – TTree name
+- `"step_size"` (default: `"1000000"`) – entries per **Spark partition** (per file)
+- `"num_partitions"` (optional, per file) – overrides `step_size`
+- `"entry_start"`, `"entry_stop"` (optional, per file) – index bounds
+- `"columns"` – comma-separated branch names (if not providing a Spark schema)
+- `"list_to32"` (default: `"true"`) – Arrow list offset width
+- `"extensionarray"` (default: `"false"`) – Arrow extension array support
+- `"cast_unsigned"` (default: `"true"`) – cast `uint*` → signed (Spark lacks unsigned)
+- `"recursive"` (default: `"false"`) – expand directories recursively
+- `"ext"` (default: `"*.root"`) – filter pattern when `path` is a directory
+- `"sample_rows"` (default: `"1000"`) – rows for schema inference
+- `"arrow_max_chunksize"` (default: `"0"`) – if >0, limit rows per Arrow RecordBatch
+
+---
+## Reading over XRootD (`root://`)
+
+```bash
+# fsspec plugins for xrootd
+pip install fsspec fsspec-xrootd
+
+# XRootD client libs + Python bindings
+conda install -c conda-forge xrootd
+```
+
+Install the extras, then:
+
+```python
+remote_file = "root://eospublic.cern.ch//eos/opendata/cms/derived-data/AOD2NanoAODOutreachTool/Run2012BC_DoubleMuParked_Muons.root"
+df = (spark.read.format("root")
+      .option("path", remote_file)
+      .option("tree", "Events")
+      .load())
+df.show(3, truncate=False)
+```
+
+---
+
+## Reading folders, globs, recursion
+
+```python
+# All .root files in a directory (non-recursive)
+df = (spark.read.format("root")
+      .option("path", "/data/myfolder")
+      .load())
+
+# Recursive directory expansion
+df = (spark.read.format("root")
+      .option("path", "/data/myfolder")
+      .option("recursive", "true")
+      .load())
+
+# Custom extension used when 'path' is a directory
+df = (spark.read.format("root")
+      .option("path", "/data/myfolder")
+      .option("ext", "*.parquet.root")
+      .load())
+
+# Glob
+df = (spark.read.format("root")
+      .option("path", "/data/*/atlas/*.root")
+      .load())
+```
+
+---
+## Tips and troubleshooting
+
+- Prefer **explicit schemas** to prune early and minimize I/O.  
+- Tune **partitioning**:  
+  - `step_size` = entries per Spark partition.  
+  - `num_partitions` (per file) overrides `step_size`.  
+- Large jagged arrays benefit from reasonable `step_size` (e.g., `100k–1M`).  
+- If necessary, use `arrow_max_chunksize` to keep batch sizes moderate for downstream stages.  
+- `cast_unsigned=true` normalizes `uint*` to signed widths (Spark-friendly).  
+- Fixed-size lists are preserved as Arrow `fixed_size_list` (no silent downgrade).
+- **XRootD errors**: install both `fsspec` and `fsspec-xrootd`, and the XRootD client libs. Conda is often the smoothest:  
+  ```bash
+  pip install fsspec fsspec-xrootd
+  conda install -c conda-forge xrootd
+  ```
+- **Tree not found**: double-check `.option("tree", "...")`; error messages list available keys.  
+- **Different schemas across files**: ensure compatible branch types or read by subsets, then reconcile in Spark.  
+- **Driver vs executors env mismatch**: set both `spark.pyspark.python` and `spark.pyspark.driver.python` to your Python.
+
