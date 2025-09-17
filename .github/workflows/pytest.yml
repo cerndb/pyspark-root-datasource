@@ -1,0 +1,66 @@
+name: pytest
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  tests:
+    name: Python ${{ matrix.python-version }} • Ubuntu
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]
+
+    env:
+      # Keep logs readable; set project-specific env here if needed
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Set up Java (Temurin 17)
+        if: ${{ env.RUN_PYSPARK_TESTS == '1' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install system deps (optional)
+        run: sudo apt-get update
+
+      - name: Install project + test deps
+        run: |
+          python -m pip install --upgrade pip
+          # Use pyproject.toml with [project.optional-dependencies].test
+          python -m pip install ".[test]"
+          # Install your package (editable for local imports during tests)
+          pip install -e .
+
+      - name: Show versions
+        run: |
+          python -V
+          pip list
+
+      - name: Run pytest
+        run: |
+          pytest -q --maxfail=1 --disable-warnings
+
+      # Coverage report
+      - name: Upload coverage to artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: .coverage
+          if-no-files-found: ignore
