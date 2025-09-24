@@ -13,16 +13,8 @@ Luca.Canali@cern.ch · v0.1 (Sep 2025)
 - ✅ Allows to read ROOT data using Apache Spark using a custom Spark 4 Python DataSource.
 - ✅ Works with local files, directories, and globs; optional **XRootD** (`root://`) support.
 - ✅ Implements partitioning and optional schema inference.
-- ✅ Powered by **uproot**, **awkward**, **PyArrow** and Spark's Python Datasource.
-
----
-## Related work & acknowledgments
-
-- The ROOT format is part of the [ROOT project](https://root.cern/)
-- Key dependencies from scikit-hep: [uproot](https://github.com/scikit-hep/uproot5) and [awkward](https://github.com/scikit-hep/awkward) (thanks to Jim Pivarski)  
-- Spark Python Datasources: [Python Data Source API](https://spark.apache.org/docs/latest/api/python/tutorial/sql/python_data_source.html), [Spark Python datasources](https://github.com/allisonwang-db/awesome-python-datasources), [Datasource for Huggingface datasets](https://github.com/huggingface/pyspark_huggingface)
-- [SPARK-48493](https://issues.apache.org/jira/browse/SPARK-48493) - Arrow batch support for improved performance (thanks to Allison Wang)
-- Notes and example notebooks on [Apache Spark for Physics](https://github.com/LucaCanali/Miscellaneous/tree/master/Spark_Physics) and a note on reading [ROOT files with Spark](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Physics/Spark_Root_data_preparation.md)
+- ✅ Powered by [**Uproot**](https://github.com/scikit-hep/uproot5), [**Awkward Array**](https://github.com/scikit-hep/awkward), [**PyArrow**](https://arrow.apache.org/) and [Spark's Python Datasource](https://spark.apache.org/docs/latest/api/python/tutorial/sql/python_data_source.html#python-data-source-reader-with-direct-arrow-batch-support-for-improved-performance).
+- Blog: [Why I’m Loving Spark 4’s Python Data Source (with Direct Arrow Batches)](https://db-blog.web.cern.ch/node/200)
 
 ---
 ## Install
@@ -171,4 +163,24 @@ df = (spark.read.format("root")
 - **Tree not found**: double-check `.option("tree", "...")`; error messages list available keys.  
 - **Different schemas across files**: ensure compatible branch types or read by subsets, then reconcile in Spark.  
 - **Driver vs executors env mismatch**: set both `spark.pyspark.python` and `spark.pyspark.driver.python` to your Python.
+
+---
+## Related work & acknowledgments
+
+- **ROOT format** — part of the [ROOT project](https://root.cern/).
+- **Core SciKit-HEP dependencies** — [uproot](https://github.com/scikit-hep/uproot5) and [awkward](https://github.com/scikit-hep/awkward) (thanks to Jim Pivarski).
+- **Spark Python data sources**
+  - Docs: [Python Data Source API](https://spark.apache.org/docs/latest/api/python/tutorial/sql/python_data_source.html)
+  - Curated list: [awesome-python-datasources](https://github.com/allisonwang-db/awesome-python-datasources) (thanks to Allison Wang)
+  - Example: [Datasource for Hugging Face datasets](https://github.com/huggingface/pyspark_huggingface)
+- **Arrow batch support** — [SPARK-48493](https://issues.apache.org/jira/browse/SPARK-48493) (thanks to Allison Wang) adds direct Arrow RecordBatch ingestion for higher throughput.
+- **Examples & notes**
+  - Notebooks: [Apache Spark for Physics](https://github.com/LucaCanali/Miscellaneous/tree/master/Spark_Physics)
+  - Guide: [Reading ROOT files with Spark](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Physics/Spark_Root_data_preparation.md)
+  - Blog: [Why I’m Loving Spark 4’s Python Data Source (with Direct Arrow Batches)](https://db-blog.web.cern.ch/node/200)
+
+### Notes & limitations
+
+- **Performance** — Python data sources cross the Python↔JVM boundary, which adds overhead. Using [Direct Arrow Batch support](https://spark.apache.org/docs/latest/api/python/tutorial/sql/python_data_source.html#python-data-source-reader-with-direct-arrow-batch-support-for-improved-performance) substantially reduces serialization cost and improves throughput. For maximum performance, a native JVM **DataSource V2** implementation typically wins (see the guide on [reading ROOT with Spark](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Physics/Spark_Root_data_preparation.md)).
+- **Scope** — This datasource is **read-only** at this stage.
 
