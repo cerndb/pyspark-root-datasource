@@ -13,7 +13,7 @@ Luca.Canali@cern.ch · v0.1 (Sep 2025)
 - ✅ Allows to read ROOT data using Apache Spark using a custom Spark 4 Python DataSource.
 - ✅ Works with local files, directories, and globs; optional **XRootD** (`root://`) support.
 - ✅ Implements partitioning and optional schema inference.
-- ✅ Powered by **uproot**, **awkward**, **PyArrow** and Spark's Python Datasource.
+- ✅ Powered by [**Uproot**](https://github.com/scikit-hep/uproot5), [**Awkward Array**](https://github.com/scikit-hep/awkward), [**PyArrow**](https://arrow.apache.org/) and Spark's Python Datasource.
 
 ---
 ## Related work & acknowledgments
